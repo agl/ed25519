@@ -25,7 +25,6 @@ func (zeroReader) Read(buf []byte) (int, error) {
 }
 
 func TestSignVerify(t *testing.T) {
-	return
 	var zero zeroReader
 	public, private, _ := GenerateKey(zero)
 
@@ -94,7 +93,7 @@ func TestGolden(t *testing.T) {
 
 		sig2 := Sign(&priv, msg)
 		if !bytes.Equal(sig, sig2[:]) {
-			t.Errorf("different signature result on line %d", lineNo)
+			t.Errorf("different signature result on line %d: %x vs %x", lineNo, sig, sig2)
 		}
 
 		var pubKey [PublicKeySize]byte
