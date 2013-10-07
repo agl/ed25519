@@ -2140,14 +2140,32 @@ func scReduce(out *[32]byte, s *[64]byte) {
 	out[31] = byte(s11 >> 17)
 }
 
-// GenerateKey generates a public/private key pair using randomness from rand.
+// GenerateKeys generates a public/private key pair using randomness from rand.
 func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, privateKey *[PrivateKeySize]byte, err error) {
-	privateKey = new([64]byte)
-	publicKey = new([32]byte)
-	_, err = io.ReadFull(rand, privateKey[:32])
+	privateKey, err = GeneratePrivateKey(rand)
+
 	if err != nil {
 		return nil, nil, err
 	}
+
+	publicKey = GeneratePublicKey(privateKey)
+	return
+}
+
+// GenerateKeys generates a private key using randomness from rand.
+func GeneratePrivateKey(rand io.Reader) (privateKey *[PrivateKeySize]byte, err error) {
+	privateKey = new([64]byte)
+
+	_, err = io.ReadFull(rand, privateKey[:32])
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
+// GenerateKeys generates a public key from privateKey.
+func GeneratePublicKey(privateKey *[PrivateKeySize]byte) (publicKey *[PublicKeySize]byte) {
+	publicKey = new([32]byte)
 
 	h := sha512.New()
 	h.Write(privateKey[:32])
