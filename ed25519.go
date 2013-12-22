@@ -2240,3 +2240,44 @@ func Verify(publicKey *[PublicKeySize]byte, message []byte, sig *[SignatureSize]
 	R.ToBytes(&checkR)
 	return bytes.Equal(sig[:32], checkR[:])
 }
+
+// PrivateKeyToCurve25519 converts an ed25519 private key into a corresponding
+// curve25519 private key such that the resulting curve25519 public key will
+// equal the result from PublicKeyToCurve25519.
+func PrivateKeyToCurve25519(curve25519Private *[32]byte, privateKey *[PrivateKeySize]byte) {
+	h := sha512.New()
+	h.Write(privateKey[:32])
+	digest := h.Sum(nil)
+
+	digest[0] &= 248
+	digest[31] &= 127
+	digest[31] |= 64
+
+	copy(curve25519Private[:], digest)
+}
+
+// PublicKeyToCurve25519 converts an Ed25519 public key into the curve25519
+// public key that would be generated from the same private key.
+func PublicKeyToCurve25519(curve25519Public *[32]byte, publicKey *[PublicKeySize]byte) bool {
+	// We only need the x-coordinate of the curve25519 point, which I'll call u.
+	// The isomorphism is u=(y+1)/(1-y), since y=Y/Z, this gives u=(Y+Z)/(Z-Y).
+
+	var A extendedGroupElement
+	if !A.FromBytes(publicKey) {
+		return false
+	}
+
+	// Z=1 since we have just unpacked the public key. Thus u=(Y+1)/(1-Y).
+	var oneMinusY fieldElement
+	feOne(&oneMinusY)
+	feSub(&oneMinusY, &oneMinusY, &A.Y)
+	feInvert(&oneMinusY, &oneMinusY)
+
+	var yPlusOne fieldElement
+	feOne(&yPlusOne)
+	feAdd(&yPlusOne, &yPlusOne, &A.Y)
+
+	feMul(&yPlusOne, &yPlusOne, &oneMinusY)
+	feToBytes(curve25519Public, &yPlusOne)
+	return true
+}
