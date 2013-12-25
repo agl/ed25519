@@ -8,14 +8,11 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
-	"crypto/rand"
 	"encoding/hex"
 	"io"
 	"os"
 	"strings"
 	"testing"
-
-	"code.google.com/p/go.crypto/curve25519"
 )
 
 type zeroReader struct{}
@@ -104,21 +101,5 @@ func TestGolden(t *testing.T) {
 		if !Verify(&pubKey, msg, sig2) {
 			t.Errorf("signature failed to verify on line %d", lineNo)
 		}
-	}
-}
-
-func TestCurve25519Conversion(t *testing.T) {
-	public, private, _ := GenerateKey(rand.Reader)
-
-	var curve25519Public, curve25519Public2, curve25519Private [32]byte
-	PrivateKeyToCurve25519(&curve25519Private, private)
-	curve25519.ScalarBaseMult(&curve25519Public, &curve25519Private)
-
-	if !PublicKeyToCurve25519(&curve25519Public2, public) {
-		t.Fatalf("PublicKeyToCurve25519 failed")
-	}
-
-	if !bytes.Equal(curve25519Public[:], curve25519Public2[:]) {
-		t.Errorf("Values didn't match: curve25519 produced %x, conversion produced %x", curve25519Public[:], curve25519Public2[:])
 	}
 }
