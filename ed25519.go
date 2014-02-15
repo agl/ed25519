@@ -10,8 +10,8 @@ package ed25519
 // from SUPERCOP.
 
 import (
-	"bytes"
 	"crypto/sha512"
+	"crypto/subtle"
 	"io"
 
 	"github.com/agl/ed25519/edwards25519"
@@ -121,5 +121,5 @@ func Verify(publicKey *[PublicKeySize]byte, message []byte, sig *[SignatureSize]
 
 	var checkR [32]byte
 	R.ToBytes(&checkR)
-	return bytes.Equal(sig[:32], checkR[:])
+	return subtle.ConstantTimeCompare(sig[:32], checkR[:]) == 1
 }
