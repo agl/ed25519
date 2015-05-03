@@ -17,9 +17,16 @@ package edwards25519
 type FieldElement [10]int32
 
 func FeZero(fe *FieldElement) {
-	for i := range fe {
-		fe[i] = 0
-	}
+	fe[0] = 0
+	fe[1] = 0
+	fe[2] = 0
+	fe[3] = 0
+	fe[4] = 0
+	fe[5] = 0
+	fe[6] = 0
+	fe[7] = 0
+	fe[8] = 0
+	fe[9] = 0
 }
 
 func FeOne(fe *FieldElement) {
@@ -28,21 +35,33 @@ func FeOne(fe *FieldElement) {
 }
 
 func FeAdd(dst, a, b *FieldElement) {
-	for i := range dst {
-		dst[i] = a[i] + b[i]
-	}
+	dst[0] = a[0] + b[0]
+	dst[1] = a[1] + b[1]
+	dst[2] = a[2] + b[2]
+	dst[3] = a[3] + b[3]
+	dst[4] = a[4] + b[4]
+	dst[5] = a[5] + b[5]
+	dst[6] = a[6] + b[6]
+	dst[7] = a[7] + b[7]
+	dst[8] = a[8] + b[8]
+	dst[9] = a[9] + b[9]
 }
 
 func FeSub(dst, a, b *FieldElement) {
-	for i := range dst {
-		dst[i] = a[i] - b[i]
-	}
+	dst[0] = a[0] - b[0]
+	dst[1] = a[1] - b[1]
+	dst[2] = a[2] - b[2]
+	dst[3] = a[3] - b[3]
+	dst[4] = a[4] - b[4]
+	dst[5] = a[5] - b[5]
+	dst[6] = a[6] - b[6]
+	dst[7] = a[7] - b[7]
+	dst[8] = a[8] - b[8]
+	dst[9] = a[9] - b[9]
 }
 
 func FeCopy(dst, src *FieldElement) {
-	for i := range dst {
-		dst[i] = src[i]
-	}
+	copy(dst[:], src[:])
 }
 
 // Replace (f,g) with (g,g) if b == 1;
@@ -50,15 +69,17 @@ func FeCopy(dst, src *FieldElement) {
 //
 // Preconditions: b in {0,1}.
 func FeCMove(f, g *FieldElement, b int32) {
-	var x FieldElement
 	b = -b
-	for i := range x {
-		x[i] = b & (f[i] ^ g[i])
-	}
-
-	for i := range f {
-		f[i] ^= x[i]
-	}
+	f[0] ^= b & (f[0] ^ g[0])
+	f[1] ^= b & (f[1] ^ g[1])
+	f[2] ^= b & (f[2] ^ g[2])
+	f[3] ^= b & (f[3] ^ g[3])
+	f[4] ^= b & (f[4] ^ g[4])
+	f[5] ^= b & (f[5] ^ g[5])
+	f[6] ^= b & (f[6] ^ g[6])
+	f[7] ^= b & (f[7] ^ g[7])
+	f[8] ^= b & (f[8] ^ g[8])
+	f[9] ^= b & (f[9] ^ g[9])
 }
 
 func load3(in []byte) int64 {
@@ -274,9 +295,16 @@ func FeIsNonZero(f *FieldElement) int32 {
 // Postconditions:
 //    |h| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
 func FeNeg(h, f *FieldElement) {
-	for i := range h {
-		h[i] = -f[i]
-	}
+	h[0] = -f[0]
+	h[1] = -f[1]
+	h[2] = -f[2]
+	h[3] = -f[3]
+	h[4] = -f[4]
+	h[5] = -f[5]
+	h[6] = -f[6]
+	h[7] = -f[7]
+	h[8] = -f[8]
+	h[9] = -f[9]
 }
 
 // FeMul calculates h = f * g
