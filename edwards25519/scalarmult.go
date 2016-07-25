@@ -23,24 +23,26 @@ func ExtendedGroupElementCMove(t, u *ExtendedGroupElement, b int32) {
 // k should be little endian, that is:
 //   k = k[0]+256*k[1]+...+256^31 k[31]
 // This function is constant time
+// It executes exactly 256 point additions, 256 point doublings and 256 conditional moves
 func ScalarMult(out *ExtendedGroupElement, k *[32]byte, p *ExtendedGroupElement) {
 	tmpP := *p
-	var tmpPC CachedGroupElement
-	var tmpPComp CompletedGroupElement
-	var tmpOut CompletedGroupElement
-	var tmpOutE ExtendedGroupElement
+
+	var cach CachedGroupElement
+	var comp CompletedGroupElement
+	var e ExtendedGroupElement
+
 	out.Zero()
 
 	for _, byte := range k {
 		for bitNum := uint(8); bitNum > 0; bitNum-- {
-			tmpP.ToCached(&tmpPC)
-			geAdd(&tmpOut, out, &tmpPC)
+			tmpP.ToCached(&cach)
+			geAdd(&comp, out, &cach)
 
-			tmpOut.ToExtended(&tmpOutE)
-			ExtendedGroupElementCMove(out, &tmpOutE, int32((byte>>(8-bitNum))&1))
+			comp.ToExtended(&e)
+			ExtendedGroupElementCMove(out, &e, int32((byte>>(8-bitNum))&1))
 
-			tmpP.Double(&tmpPComp)
-			tmpPComp.ToExtended(&tmpP)
+			tmpP.Double(&comp)
+			comp.ToExtended(&tmpP)
 		}
 	}
 }
@@ -48,17 +50,45 @@ func ScalarMult(out *ExtendedGroupElement, k *[32]byte, p *ExtendedGroupElement)
 // DoubleScalarMult sets r = k*P + l*Q
 // where k and l are scalars and P and Q are points
 // This function is constant time
-func DoubleScalarMult(r *ExtendedGroupElement, k *[32]byte, p *ExtendedGroupElement, l *[32]byte, q *ExtendedGroupElement) {
-	var res1, res2 ExtendedGroupElement
-	var res2C CachedGroupElement
-	var res3 CompletedGroupElement
+// It executes exactly 513 point additions, 512 point doublings and 512 conditional moves
+func DoubleScalarMult(out *ExtendedGroupElement, k *[32]byte, p *ExtendedGroupElement, l *[32]byte, q *ExtendedGroupElement) {
+	tmpP := *p
+	tmpQ := *q
 
-	ScalarMult(&res1, k, p)
-	ScalarMult(&res2, l, q)
+	var cach CachedGroupElement
+	var comp CompletedGroupElement
+	var e ExtendedGroupElement
 
-	res2.ToCached(&res2C)
-	geAdd(&res3, &res1, &res2C)
-	res3.ToExtended(r)
+	var out2 ExtendedGroupElement
+	out2.Zero()
+	out.Zero()
+
+	for bix, byte := range k {
+		byte2 := l[bix]
+		for bitNum := uint(8); bitNum > 0; bitNum-- {
+			tmpP.ToCached(&cach)
+			geAdd(&comp, out, &cach)
+
+			comp.ToExtended(&e)
+			ExtendedGroupElementCMove(out, &e, int32((byte>>(8-bitNum))&1))
+
+			tmpQ.ToCached(&cach)
+			geAdd(&comp, &out2, &cach)
+
+			comp.ToExtended(&e)
+			ExtendedGroupElementCMove(&out2, &e, int32((byte2>>(8-bitNum))&1))
+
+			tmpP.Double(&comp)
+			comp.ToExtended(&tmpP)
+
+			tmpQ.Double(&comp)
+			comp.ToExtended(&tmpQ)
+		}
+	}
+
+	out2.ToCached(&cach)
+	geAdd(&comp, out, &cach)
+	comp.ToExtended(out)
 }
 
 // PointAdd sets r = p + q
