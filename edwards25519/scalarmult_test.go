@@ -1,7 +1,10 @@
 package edwards25519
 
 import (
+	"crypto/rand"
+	"crypto/sha512"
 	"fmt"
+	"io"
 	"math/big"
 	"testing"
 )
@@ -27,7 +30,10 @@ func (ge *CompletedGroupElement) toBasicPoint() basicPoint {
 func (ge *ExtendedGroupElement) toBasicPoint() basicPoint {
 	var q ProjectiveGroupElement
 	ge.ToProjective(&q)
+	return q.toBasicPoint()
+}
 
+func (ge *ProjectiveGroupElement) toBasicPoint() basicPoint {
 	var recip, x, y FieldElement
 	FeInvert(&recip, &ge.Z)
 	FeMul(&x, &ge.X, &recip)
@@ -125,6 +131,22 @@ func printInGoFormat(repr [32]byte) string {
 	return b.toBasicPoint().String()
 }
 
+func randomPoint(r *ExtendedGroupElement) {
+	buffer := new([32]byte)
+
+	io.ReadFull(rand.Reader, buffer[:])
+	h := sha512.New()
+	h.Write(buffer[:])
+	digest := h.Sum(nil)
+	digest[0] &= 248
+	digest[31] &= 127
+	digest[31] |= 64
+
+	var hBytes [32]byte
+	copy(hBytes[:], digest)
+	GeScalarMultBase(r, &hBytes)
+}
+
 var basePointE ExtendedGroupElement
 var basePointP ProjectiveGroupElement
 var basePointC CachedGroupElement
@@ -145,51 +167,122 @@ func TestSanityChecksOfExistingLibrary(t *testing.T) {
 	zero := [32]byte{}
 	GeScalarMultBase(&b, &zero)
 	if !b.toBasicPoint().Equals(identityPoint) {
-		t.Fatalf("GeScalarMultBase(0) should generate the identity point")
+		t.Fatalf("GeScalarMultBase(0) should generate the identity point, was: %s", b.toBasicPoint())
 	}
 
 	one := [32]byte{1}
 	GeScalarMultBase(&b, &one)
 	if !b.toBasicPoint().Equals(basePoint) {
-		t.Fatalf("GeScalarMultBase(1) should generate the base point")
+		t.Fatalf("GeScalarMultBase(1) should generate the base point, was: %s", b.toBasicPoint())
 	}
 
 	res := b.FromBytes(&basePointPythonRepr)
 	if !res || !b.toBasicPoint().Equals(basePoint) {
-		t.Fatalf("FromBytes([python representation of base point]) should generate the base point")
+		t.Fatalf("FromBytes([python representation of base point]) should generate the base point, was: %s", b.toBasicPoint())
 	}
 
 	two := [32]byte{2}
 	GeScalarMultBase(&b, &two)
 	if !b.toBasicPoint().Equals(basePointDouble) {
-		t.Fatalf("GeScalarMultBase(2) should generate the double base point")
+		t.Fatalf("GeScalarMultBase(2) should generate the double base point, was: %s", b.toBasicPoint())
 	}
 
 	ten := [32]byte{10}
 	GeScalarMultBase(&b, &ten)
 	if !b.toBasicPoint().Equals(basePointTimesTen) {
-		t.Fatalf("GeScalarMultBase(10) should generate the base point times ten")
+		t.Fatalf("GeScalarMultBase(10) should generate the base point times ten, was: %s", b.toBasicPoint())
 	}
 
 	basePointE.Double(&rc)
 	rc.ToExtended(&b)
 	if !b.toBasicPoint().Equals(basePointDouble) {
-		t.Fatalf("basePoint.Double() should generate the double base point")
+		t.Fatalf("basePoint.Double() should generate the double base point, was: %s", b.toBasicPoint())
 	}
 }
 
 func TestPointAdd(t *testing.T) {
 	var res CompletedGroupElement
+	var res2 CompletedGroupElement
+	var res2e ExtendedGroupElement
 	PointAdd(&res, &basePointE, &basePointC)
 	if !res.toBasicPoint().Equals(basePointDouble) {
-		t.Fatalf("PointAdd(basePoint, basePoint) should generate the double base point")
+		t.Fatalf("PointAdd(basePoint, basePoint) should generate the double base point, but was: %s vs %s", res.toBasicPoint(), basePointDouble)
+	}
+
+	var rp1 ExtendedGroupElement
+	var rp2 ExtendedGroupElement
+	var rpC CachedGroupElement
+
+	randomPoint(&rp1)
+	randomPoint(&rp2)
+	rp1.ToCached(&rpC)
+
+	PointAdd(&res, &rp1, &rpC)
+	rp1.Double(&res2)
+	if !res.toBasicPoint().Equals(res2.toBasicPoint()) {
+		t.Fatalf("PointAdd(P, P) should generate the same result as Double(P), but was: %s vs %s", res.toBasicPoint(), res2.toBasicPoint())
+	}
+
+	two := [32]byte{2}
+	ScalarMult(&res2e, &two, &rp1)
+	if !res.toBasicPoint().Equals(res2e.toBasicPoint()) {
+		t.Fatalf("PointAdd(P, P) should generate the same result as ScalarMult(2, P), but was: %s vs %s", res.toBasicPoint(), res2e.toBasicPoint())
+	}
+
+	PointAdd(&res, &basePointE, &basePointC)
+	GeScalarMultBase(&res2e, &two)
+	if !res.toBasicPoint().Equals(res2e.toBasicPoint()) {
+		t.Fatalf("PointAdd(B, B) should generate the same result as ScalarMultBase(2), but was: %s vs %s", res.toBasicPoint(), res2e.toBasicPoint())
 	}
 }
 
-// Testing we can do:
-// - Check that DoubleScalarMult returns the same result as GeDoubleScalarMultVartime when Q is the base point
-// - Check that ScalarMult returns the same result as GeDoubleScalarMultVartime when b is zero
-// - Check that PointAdd on the same point as P and Q returns the same as Double, and the same as ScalarMult of 2*P
-// - Check that ScalarMultBase and ScalarMult returns the same results
-// - Check that ScalarMultBase and an argument of 2 returns the same result as PointAdd of B with B
-// - begin by testing against the python code
+func TestDoubleScalarMult(t *testing.T) {
+	var rp1 ExtendedGroupElement
+	var res1 ProjectiveGroupElement
+	var res2 ExtendedGroupElement
+	randomPoint(&rp1)
+
+	arg1 := [32]byte{191, 167, 168, 36, 214, 101, 140, 153, 31, 174, 240, 131, 178, 220, 4, 23, 63, 200, 108, 79, 122, 145, 143, 45, 141, 223, 182, 43, 28, 133, 60, 120}
+	arg2 := [32]byte{61, 88, 82, 173, 35, 82, 196, 75, 120, 174, 211, 66, 42, 24, 210, 222, 3, 6, 129, 133, 116, 121, 56, 54, 253, 101, 140, 238, 19, 208, 54, 122}
+
+	GeDoubleScalarMultVartime(&res1, &arg1, &rp1, &arg2)
+	DoubleScalarMult(&res2, &arg1, &rp1, &arg2, &basePointE)
+
+	if !res1.toBasicPoint().Equals(res2.toBasicPoint()) {
+		t.Fatalf("GeDoubleScalarMultVartime(k, P, q) should generate the same result as DoubleScalarMult(k, P, q, B), but was: %s vs %s", res1.toBasicPoint(), res2.toBasicPoint())
+	}
+
+	arg2 = [32]byte{0}
+
+	GeDoubleScalarMultVartime(&res1, &arg1, &rp1, &arg2)
+	DoubleScalarMult(&res2, &arg1, &rp1, &arg2, &basePointE)
+
+	if !res1.toBasicPoint().Equals(res2.toBasicPoint()) {
+		t.Fatalf("GeDoubleScalarMultVartime(k, P, 0) should generate the same result as DoubleScalarMult(k, P, 0, B), but was: %s vs %s", res1.toBasicPoint(), res2.toBasicPoint())
+	}
+}
+
+func TestScalarMult(t *testing.T) {
+	var rp1 ExtendedGroupElement
+	var res1p ProjectiveGroupElement
+	var res1e ExtendedGroupElement
+	var res2 ExtendedGroupElement
+	randomPoint(&rp1)
+
+	arg1 := [32]byte{191, 167, 168, 36, 214, 101, 140, 153, 31, 174, 240, 131, 178, 220, 4, 23, 63, 200, 108, 79, 122, 145, 143, 45, 141, 223, 182, 43, 28, 133, 60, 120}
+	arg2 := [32]byte{0}
+
+	GeDoubleScalarMultVartime(&res1p, &arg1, &rp1, &arg2)
+	ScalarMult(&res2, &arg1, &rp1)
+
+	if !res1p.toBasicPoint().Equals(res2.toBasicPoint()) {
+		t.Fatalf("GeDoubleScalarMultVartime(k, P, 0) should generate the same result as ScalarMult(k, P), but was: %s vs %s", res1p.toBasicPoint(), res2.toBasicPoint())
+	}
+
+	GeScalarMultBase(&res1e, &arg1)
+	ScalarMult(&res2, &arg1, &basePointE)
+
+	if !res1e.toBasicPoint().Equals(res2.toBasicPoint()) {
+		t.Fatalf("GeScalarMultBase(k) should generate the same result as ScalarMult(k, B), but was: %s vs %s", res1e.toBasicPoint(), res2.toBasicPoint())
+	}
+}
