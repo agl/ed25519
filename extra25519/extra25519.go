@@ -119,13 +119,13 @@ func ScalarBaseMult(publicKey, representative, privateKey *[32]byte) bool {
 	var b edwards25519.FieldElement
 	edwards25519.FeAdd(&b, &u, &edwards25519.A)
 
-	var c, b3, b8 edwards25519.FieldElement
+	var c, b3, b7, b8 edwards25519.FieldElement
 	edwards25519.FeSquare(&b3, &b)   // 2
 	edwards25519.FeMul(&b3, &b3, &b) // 3
 	edwards25519.FeSquare(&c, &b3)   // 6
-	edwards25519.FeMul(&c, &c, &b)   // 7
-	edwards25519.FeMul(&b8, &c, &b)  // 8
-	edwards25519.FeMul(&c, &c, &u)
+	edwards25519.FeMul(&b7, &c, &b)  // 7
+	edwards25519.FeMul(&b8, &b7, &b) // 8
+	edwards25519.FeMul(&c, &b7, &u)
 	q58(&c, &c)
 
 	var chi edwards25519.FieldElement
@@ -135,11 +135,7 @@ func ScalarBaseMult(publicKey, representative, privateKey *[32]byte) bool {
 	edwards25519.FeSquare(&t0, &u)
 	edwards25519.FeMul(&chi, &chi, &t0)
 
-	edwards25519.FeSquare(&t0, &b)   // 2
-	edwards25519.FeMul(&t0, &t0, &b) // 3
-	edwards25519.FeSquare(&t0, &t0)  // 6
-	edwards25519.FeMul(&t0, &t0, &b) // 7
-	edwards25519.FeSquare(&t0, &t0)  // 14
+	edwards25519.FeSquare(&t0, &b7) // 14
 	edwards25519.FeMul(&chi, &chi, &t0)
 	edwards25519.FeNeg(&chi, &chi)
 
