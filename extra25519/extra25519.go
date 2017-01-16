@@ -55,9 +55,9 @@ func PublicKeyToCurve25519(curve25519Public *[32]byte, publicKey *[32]byte) bool
 	return true
 }
 
-// sqrtMinusA is sqrt(-486662)
-var sqrtMinusA = edwards25519.FieldElement{
-	12222970, 8312128, 11511410, -9067497, 15300785, 241793, -25456130, -14121551, 12187136, -3972024,
+// sqrtMinusAPlus2 is sqrt(-(486662+2))
+var sqrtMinusAPlus2 = edwards25519.FieldElement{
+	-12222970, -8312128, -11511410, 9067497, -15300785, -241793, 25456130, 14121551, -12187136, 3972024,
 }
 
 // sqrtMinusHalf is sqrt(-1/2)
@@ -114,7 +114,7 @@ func ScalarBaseMult(publicKey, representative, privateKey *[32]byte) bool {
 	var v edwards25519.FieldElement
 	edwards25519.FeMul(&v, &t0, &inv1)
 	edwards25519.FeMul(&v, &v, &A.Z)
-	edwards25519.FeMul(&v, &v, &sqrtMinusA)
+	edwards25519.FeMul(&v, &v, &sqrtMinusAPlus2)
 
 	var b edwards25519.FieldElement
 	edwards25519.FeAdd(&b, &u, &edwards25519.A)
