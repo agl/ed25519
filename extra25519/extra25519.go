@@ -192,6 +192,13 @@ func ScalarBaseMult(publicKey, representative, privateKey *[32]byte) bool {
 	vInSquareRootImage := feBytesLE(&vBytes, &halfQMinus1Bytes)
 	edwards25519.FeCMove(&r, &r1, vInSquareRootImage)
 
+	// 5.5: Here |b| means b if b in {0, 1, ..., (q - 1)/2}, otherwise -b.
+	var rBytes [32]byte
+	edwards25519.FeToBytes(&rBytes, &r)
+	negateB := 1 & (^feBytesLE(&rBytes, &halfQMinus1Bytes))
+	edwards25519.FeNeg(&r1, &r)
+	edwards25519.FeCMove(&r, &r1, negateB)
+
 	edwards25519.FeToBytes(publicKey, &u)
 	edwards25519.FeToBytes(representative, &r)
 	return true
