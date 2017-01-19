@@ -16,15 +16,30 @@ package edwards25519
 // context.
 type FieldElement [10]int32
 
-var zero FieldElement
-
 func FeZero(fe *FieldElement) {
-	copy(fe[:], zero[:])
+	fe[0] = 0
+	fe[1] = 0
+	fe[2] = 0
+	fe[3] = 0
+	fe[4] = 0
+	fe[5] = 0
+	fe[6] = 0
+	fe[7] = 0
+	fe[8] = 0
+	fe[9] = 0
 }
 
 func FeOne(fe *FieldElement) {
-	FeZero(fe)
 	fe[0] = 1
+	fe[1] = 0
+	fe[2] = 0
+	fe[3] = 0
+	fe[4] = 0
+	fe[5] = 0
+	fe[6] = 0
+	fe[7] = 0
+	fe[8] = 0
+	fe[9] = 0
 }
 
 func FeAdd(dst, a, b *FieldElement) {
@@ -55,24 +70,6 @@ func FeSub(dst, a, b *FieldElement) {
 
 func FeCopy(dst, src *FieldElement) {
 	copy(dst[:], src[:])
-}
-
-// Replace (f,g) with (g,g) if b == 1;
-// replace (f,g) with (f,g) if b == 0.
-//
-// Preconditions: b in {0,1}.
-func FeCMove(f, g *FieldElement, b int32) {
-	b = -b
-	f[0] ^= b & (f[0] ^ g[0])
-	f[1] ^= b & (f[1] ^ g[1])
-	f[2] ^= b & (f[2] ^ g[2])
-	f[3] ^= b & (f[3] ^ g[3])
-	f[4] ^= b & (f[4] ^ g[4])
-	f[5] ^= b & (f[5] ^ g[5])
-	f[6] ^= b & (f[6] ^ g[6])
-	f[7] ^= b & (f[7] ^ g[7])
-	f[8] ^= b & (f[8] ^ g[8])
-	f[9] ^= b & (f[9] ^ g[9])
 }
 
 func load3(in []byte) int64 {
