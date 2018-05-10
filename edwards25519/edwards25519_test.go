@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/bwesterb/ed25519/edwards25519"
+	"github.com/agl/ed25519/edwards25519"
 )
 
 func TestRistretto(t *testing.T) {
