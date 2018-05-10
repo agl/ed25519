@@ -1771,3 +1771,117 @@ func ScReduce(out *[32]byte, s *[64]byte) {
 	out[30] = byte(s11 >> 9)
 	out[31] = byte(s11 >> 17)
 }
+
+// Compute inverse squareroot
+func FeInvSqrt(out, x *FieldElement) {
+	var den2, den3, den4, den6, chk, t, t2 FieldElement
+	FeSquare(&den2, x)
+	FeMul(&den3, &den2, x)
+	FeSquare(&den4, &den2)
+	FeMul(&den6, &den2, &den4)
+	FeMul(&t, &den6, x)
+	fePow22523(&t, &t)
+	FeMul(&t, &t, &den3)
+	FeSquare(&chk, &t)
+	FeMul(&chk, &chk, x)
+	FeMul(&t2, &t, &SqrtM1)
+	FeCMove(&t, &t2, 1-FeIsOne(&chk))
+	FeCopy(out, &t)
+}
+
+func FeIsOne(f *FieldElement) int32 {
+	var g, one FieldElement
+	FeOne(&one)
+	FeSub(&g, f, &one)
+	return 1 - FeIsNonZero(&g)
+}
+
+// Unpacks a point from its Ristretto "encoding".
+// Not every curve point has a Ristretto encoding and if a curve point
+// does have a Ristretto encoding, then there are three other points with
+// the same encoding.
+// (For the connoisseurs: the Ristretto group is a subquotient of the Edwards
+// curve, which does have prime order.)
+func (p *ExtendedGroupElement) FromRistrettoBytes(x *[32]byte) bool {
+	var s, s2, chk, yden, ynum, yden2, xden2, isr, xdeninv FieldElement
+	var one, zero, ydeninv, t FieldElement
+	var ret int32
+	var b byte
+
+	FeOne(&one)
+	FeZero(&zero)
+	FeFromBytes(&s, x)
+	ret = int32(FeIsNegative(&s))
+	FeSquare(&s2, &s)
+	FeAdd(&yden, &one, &s2)
+	FeSub(&ynum, &one, &s2)
+	FeSquare(&yden2, &yden)
+	FeSquare(&xden2, &ynum)
+	FeMul(&xden2, &xden2, &d)
+	FeAdd(&xden2, &xden2, &yden2)
+	FeNeg(&xden2, &xden2)
+	FeMul(&t, &xden2, &yden2)
+	FeInvSqrt(&isr, &t)
+	FeSquare(&chk, &isr)
+	FeMul(&chk, &chk, &t)
+	ret |= 1 - FeIsOne(&chk)
+	FeMul(&xdeninv, &isr, &yden)
+	FeMul(&ydeninv, &xdeninv, &isr)
+	FeMul(&ydeninv, &ydeninv, &xden2)
+	FeMul(&p.X, &s, &xdeninv)
+	FeAdd(&p.X, &p.X, &p.X)
+	b = FeIsNegative(&p.X)
+	FeNeg(&t, &p.X)
+	FeCMove(&p.X, &t, int32(b))
+	FeMul(&p.Y, &ynum, &ydeninv)
+	FeOne(&p.Z)
+	FeMul(&p.T, &p.X, &p.Y)
+	ret |= int32(FeIsNegative(&p.T))
+	ret |= 1 - FeIsNonZero(&p.Y)
+	FeCMove(&p.X, &zero, ret)
+	FeCMove(&p.Y, &zero, ret)
+	FeCMove(&p.Z, &zero, ret)
+	FeCMove(&p.T, &zero, ret)
+	return ret == 0
+}
+
+// Returns the Ristretto "encoding" of the point.
+// Not every curve point has a Ristretto encoding and if a curve point
+// does have a Ristretto encoding, then there are three other points with
+// the same encoding.
+// (For the connoisseurs: the Ristretto group is a subquotient of the Edwards
+// curve, which does have prime order.)
+func (p *ExtendedGroupElement) ToRistrettoBytes(r *[32]byte) {
+	var d, u1, u2, isr, i1, i2, zinv, deninv, nx, ny, s FieldElement
+	var b int32
+
+	FeAdd(&d, &p.Z, &p.Y)
+	FeSub(&u1, &p.Z, &p.Y)
+	FeMul(&u1, &u1, &d)
+	FeMul(&u2, &p.X, &p.Y)
+	FeSquare(&isr, &u2)
+	FeMul(&isr, &isr, &u1)
+	FeInvSqrt(&isr, &isr)
+	FeMul(&i1, &isr, &u1)
+	FeMul(&i2, &isr, &u2)
+	FeMul(&zinv, &i1, &i2)
+	FeMul(&zinv, &zinv, &p.T)
+	FeMul(&d, &zinv, &p.T)
+	b = 1 - int32(FeIsNegative(&d))
+	FeMul(&nx, &p.Y, &SqrtM1)
+	FeMul(&ny, &p.X, &SqrtM1)
+	FeMul(&deninv, &ristrettoMagic, &i1)
+	FeCMove(&nx, &p.X, b)
+	FeCMove(&ny, &p.Y, b)
+	FeCMove(&deninv, &i2, b)
+	FeMul(&d, &nx, &zinv)
+	b = int32(FeIsNegative(&d))
+	FeNeg(&d, &ny)
+	FeCMove(&ny, &d, b)
+	FeSub(&s, &p.Z, &ny)
+	FeMul(&s, &s, &deninv)
+	b = int32(FeIsNegative(&s))
+	FeNeg(&d, &s)
+	FeCMove(&s, &d, b)
+	FeToBytes(r, &s)
+}
